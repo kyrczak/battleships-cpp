@@ -21,6 +21,10 @@ enum direction {
 	S,
 	W
 };
+struct point {
+	int x;
+	int y;
+};
 struct ship {
 	int isPlaced;
 	int length;
@@ -28,6 +32,7 @@ struct ship {
 	int x_position;
 	int y_position;
 	int classIterator;
+	point* placement;
 };
 struct player {
 	int playersNumber;
@@ -45,7 +50,7 @@ void playerPhase(player* selectedPlayer);
 void errorHandler(char tag[25], char text[50]);
 
 int main() {
-	char board[21][10];
+	char board[BOARD_HEIGHT][BOARD_WIDTH];
 	player playerA = initiatePlayer(A);
 	player playerB = initiatePlayer(B);
 	player* players[] = { &playerA, &playerB };
@@ -90,6 +95,7 @@ void statePhase(player* playerArray[]) {
 			cin >> a1 >> a2 >> a3 >> a4;
 			setFleet(selectedPlayer, a1, a2, a3, a4);
 		}
+		
 	}
 }
 void playerPhase(player* selectedPlayer) {
@@ -124,6 +130,7 @@ ship createShip(int length, player* playerX, int iterator) {
 	newShip.length = length + 2;
 	newShip.isPlaced = 0;
 	newShip.classIterator = iterator;
+	newShip.placement = (point*)malloc(sizeof(point) * (length + 2));
 	return newShip;
 }
 void setFleet(player* playerX, int a1, int a2, int a3, int a4) {
@@ -142,10 +149,25 @@ void placeShip(int positionY, int positionX, int shipDirection, int iterator, in
 		ship* currentShip = &(currentPlayer->ships_array[i]);
 		if (currentPlayer->ships_array[i].isPlaced == 0) {
 			if (currentPlayer->ships_array[i].length == shipClass && currentPlayer->ships_array[i].classIterator == iterator) {
-				currentShip->isPlaced = 1;
-				currentShip->direction = shipDirection;
-				currentShip->x_position = positionX;
-				currentShip->y_position = positionY;
+				if (checkShipPlacement) {
+					switch (shipDirection) {
+					case N:
+						for (int i = 0; i < currentShip->length; i++) {
+
+						}
+						break;
+					case E:
+						break;
+					case S:
+						break;
+					case W:
+						break;
+					}
+				}
+				else {
+					char tag[25] = "PLACE_SHIP";
+					char text[50] = "NOT IN STARTING POSITION";
+				}
 			}
 		}
 		else {
@@ -153,5 +175,18 @@ void placeShip(int positionY, int positionX, int shipDirection, int iterator, in
 			char text[50] = "SHIP ALREADY PRESENT";
 			errorHandler(tag,text);
 		}
+	}
+}
+int checkShipPlacement(player* currentPlayer, int positionY, int positionX, int shipDirection, int shipClass) {
+	if (positionY < currentPlayer->maxBoardHeight && positionY >= currentPlayer->minBoardHeight) {
+		if (positionX + shipClass <= BOARD_WIDTH || positionX - shipClass > 0) {
+			return 1;
+		}
+		else {
+			return 0;
+		}
+	}
+	else {
+		return 0;
 	}
 }
