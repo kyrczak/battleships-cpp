@@ -1,4 +1,7 @@
 #include <iostream>
+#include <stdlib.h>
+#include <string.h>
+
 #define SHIP_AMOUNT 10
 #define BOARD_WIDTH 10
 #define BOARD_HEIGHT 21
@@ -27,6 +30,7 @@ enum direction {
 struct point {
 	int x;
 	int y;
+	int isShot;
 };
 struct ship {
 	int isPlaced;
@@ -90,6 +94,7 @@ void boardPrep(char (*array)[BOARD_HEIGHT][BOARD_WIDTH]) {
 }
 void errorHandler(char tag[TAG_LENGTH], char text[TEXT_LENGTH]) {
 	cout << "INVALID OPERATION " << tag << " SPECIFIED: " << text;
+	exit(0);
 }
 void statePhase(player* playerArray[], char (*board)[BOARD_HEIGHT][BOARD_WIDTH]) {
 	char command[TEXT_LENGTH];
@@ -156,7 +161,7 @@ int dirOption(char buffor) {
 	else if (buffor == 'S') return S;
 	else return 0;
 }
-player initiatePlayer(int playerName) {
+player initiatePlayer(int playerName)  {
 	player playerDefault;
 	playerDefault.playersNumber = playerName;
 	playerDefault.fleetSize = 0;
@@ -179,6 +184,9 @@ ship createShip(int length, player* playerX, int iterator) {
 	newShip.classIterator = iterator;
 	newShip.direction = 0;
 	newShip.placement = (point*)malloc(sizeof(point) * newShip.length);
+	for (int i = 0; i < newShip.length; i++) {
+		newShip.placement[i].isShot = 0;
+	}
 	return newShip;
 }
 void setFleet(player* playerX, int a1, int a2, int a3, int a4) {
@@ -202,79 +210,102 @@ void setFleet(player* playerX, int a1, int a2, int a3, int a4) {
 	playerX->fleetPlaced = 1;
 }
 void placeShip(int positionY, int positionX, int shipDirection, int iterator, int shipClass, player* currentPlayer) {
+	char tag[TAG_LENGTH] = "PLACE_SHIP";
 	int fleetSize = currentPlayer->fleetSize;
+	ship* currentShip = NULL;
 	for (int i = 0; i < fleetSize; i++) {
-		ship* currentShip = &(currentPlayer->ships_array[i]);
-		if (currentShip->length == shipClass && currentShip->classIterator == iterator) {
-				if (/*checkShipPlacement(currentPlayer, positionY, positionX, shipDirection, shipClass)*/ 1) {
-					switch (shipDirection) {
-					case N:
-						for (int j = 0; j < (currentShip->length); j++) {
-							currentShip->placement[j].x = positionX;
-							currentShip->placement[j].y = positionY+j;
-						}
-						currentShip->isPlaced = 1;
-						break;
-					case E:
-						for (int j = 0; j < (currentShip->length); j++) {
-							currentShip->placement[j].x = positionX-j;
-							currentShip->placement[j].y = positionY;
-
-						}
-						currentShip->isPlaced = 1;
-						break;
-					case S:
-						for (int j = 0; j < (currentShip->length); j++) {
-							currentShip->placement[j].x = positionX;
-							currentShip->placement[j].y = positionY - j;
-
-						}
-						currentShip->isPlaced = 1;
-						break;
-					case W:
-						for (int j = 0; j < (currentShip->length); j++) {
-							currentShip->placement[j].x = positionX-j;
-							currentShip->placement[j].y = positionY;
-
-						}
-						currentShip->isPlaced = 1;
-						break;
-					}
-				}
-				else {
-					char tag[TAG_LENGTH] = "PLACE_SHIP";
-					char text[TEXT_LENGTH] = "NOT IN STARTING POSITION";
-				}
+		if (currentPlayer->ships_array[i].length == shipClass && currentPlayer->ships_array[i].classIterator == iterator) {
+			if (currentPlayer->ships_array[i].isPlaced == 0) {
+				currentShip = &(currentPlayer->ships_array[i]);
 			}
+			else {
+				char text[TEXT_LENGTH] = "SHIP ALREADY PRESENT";
+				errorHandler(tag, text);
+			}
+		}
+	}
+	if (currentShip == NULL) {
+		char text[TEXT_LENGTH] = "ALL SHIPS OF THE CLASS ALREADY SET";
+		errorHandler(tag, text);
+		//errorHandler "ALL SHIPS OF THE CLASS ALREADY SET"
+	}
+	else if(checkShipPlacement(currentPlayer,positionY,positionX,shipDirection,shipClass)==1) {
+		switch (shipDirection) {
+		case N:
+			for (int j = 0; j < (currentShip->length); j++) {
+				currentShip->placement[j].x = positionX;
+				currentShip->placement[j].y = positionY + j;
+			}
+			currentShip->isPlaced = 1;
+			break;
+		case E:
+			for (int j = 0; j < (currentShip->length); j++) {
+				currentShip->placement[j].x = positionX - j;
+				currentShip->placement[j].y = positionY;
+
+			}
+			currentShip->isPlaced = 1;
+			break;
+		case S:
+			for (int j = 0; j < (currentShip->length); j++) {
+				currentShip->placement[j].x = positionX;
+				currentShip->placement[j].y = positionY - j;
+
+			}
+			currentShip->isPlaced = 1;
+			break;
+		case W:
+			for (int j = 0; j < (currentShip->length); j++) {
+				currentShip->placement[j].x = positionX + j;
+				currentShip->placement[j].y = positionY;
+			}
+			currentShip->isPlaced = 1;
+			break;
+		}
+	}
+	else {
+		char text[TEXT_LENGTH] = "NOT IN STARTING POSITION";
+		errorHandler(tag, text);
 	}
 }
+
 int checkShipPlacement(player* currentPlayer, int positionY, int positionX, int shipDirection, int shipClass) {
-	if (positionY < currentPlayer->maxBoardHeight && positionY >= currentPlayer->minBoardHeight) {
-		/*switch (shipDirection) {
-		case N:
-			if (positionY + shipClass > currentPlayer->maxBoardHeight)
+	if (positionY <= currentPlayer->maxBoardHeight && positionY >= currentPlayer->minBoardHeight) {
+		if (shipDirection == N) {
+			if ((positionY + shipClass-1) > currentPlayer->maxBoardHeight) {
 				return 0;
-			else
+			}
+			else {
 				return 1;
-		case E:
-			if (positionX + shipClass > BOARD_WIDTH)
+			}
+		}
+		if (shipDirection == E) {
+			if ((positionX - shipClass) >= BOARD_WIDTH) {
 				return 0;
-			else
+			}
+			else {
 				return 1;
-		case W:
-			if ((positionX - shipClass) < currentPlayer->minBoardHeight)
+			}
+		}
+		if (shipDirection == W) {
+			if ((positionX + shipClass) < 0) {
 				return 0;
-			else
+			}
+			else {
 				return 1;
-		case S:
-			if ((positionY - shipClass) < 0)
+			}
+		}
+		if (shipDirection == S) {
+			if ((positionY - shipClass+1) < 0) {
 				return 0;
-			else
+			}
+			else {
 				return 1;
-		default:
+			}
+		}
+		else {
 			return 0;
-		}*/
-		return 1;
+		}
 	}
 	else {
 		return 0;
