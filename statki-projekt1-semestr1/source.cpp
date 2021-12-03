@@ -227,29 +227,26 @@ void placeShip(int positionY, int positionX, int shipDirection, int iterator, in
 		switch (shipDirection) {
 		case N:
 			for (int j = 0; j < (currentShip->length); j++) {
-				point* placeOnBoard = board[positionY + j][positionX];
+				point* placeOnBoard = &((*board)[positionY + j][positionX]);
 				currentShip->placement[j] = placeOnBoard;
 			}
 			currentShip->isPlaced = 1;
 			break;
 		case E:
 			for (int j = 0; j < (currentShip->length); j++) {
-				currentShip->placement[j] = board[positionY][(positionX - j)];
-				cout << currentShip->placement[j]->x << " : " << currentShip->placement[j]->y << endl;
+				currentShip->placement[j] = &((*board)[positionY][positionX-j]);
 			}
 			currentShip->isPlaced = 1;
 			break;
 		case S:
 			for (int j = 0; j < (currentShip->length); j++) {
-				currentShip->placement[j] = board[positionY - j][positionX];
-				cout << currentShip->placement[j]->x << " : " << currentShip->placement[j]->y << endl;
+				currentShip->placement[j] = &((*board)[positionY - j][positionX]);
 			}
 			currentShip->isPlaced = 1;
 			break;
 		case W:
 			for (int j = 0; j < (currentShip->length); j++) {
-				currentShip->placement[j] = board[positionY][positionX + j];
-				cout << currentShip->placement[j]->x << " : " << currentShip->placement[j]->y << endl;
+				currentShip->placement[j] = &((*board)[positionY][positionX + j]);
 			}
 			currentShip->isPlaced = 1;
 			break;
