@@ -27,17 +27,20 @@ enum direction {
 	S
 };
 
+struct point;
+struct ship;
+
 struct point {
 	int x;
 	int y;
 	char part;
+	ship* whichShip;
 };
+
 struct ship {
 	int isPlaced;
 	unsigned int length;
 	unsigned int direction;
-	int x_position;
-	int y_position;
 	int classIterator;
 	point** placement;
 };
@@ -45,6 +48,7 @@ struct player {
 	int playersNumber;
 	int fleetSize;
 	int remainingShipTiles;
+	int fleetSet;
 	int fleetPlaced;
 	int minBoardHeight;
 	int maxBoardHeight;
@@ -56,13 +60,16 @@ ship createShip(int length, player* playerX, int iterator);
 int shipClassOption(char buffor[5]);
 int dirOption(char buffor);
 void setFleet(player* playerX, int a1, int a2, int a3, int a4);
-void placeShip(int positionY, int positionX, int shipDirection, int iterator, int shipClass, player* currentPlayer, point(*board)[BOARD_HEIGHT][BOARD_WIDTH]);
+void placeShip(int positionY, int positionX, int shipDirection, int iterator, int shipClass, player* currentPlayer, point(*board)[BOARD_HEIGHT][BOARD_WIDTH], char shipCHAR[5], char dirCHAR);
 void statePhase(player* playerArray[], point (*board)[BOARD_HEIGHT][BOARD_WIDTH]);
-void playerPhase(player* selectedPlayer, point(*board)[BOARD_HEIGHT][BOARD_WIDTH]);
+void playerPhase(player* selectedPlayer, point(*board)[BOARD_HEIGHT][BOARD_WIDTH], player* playerArray[]);
+void shoot(int x, int y, point(*board)[BOARD_HEIGHT][BOARD_WIDTH], player* playerArray[]);
 void errorHandler(char tag[TAG_LENGTH], char text[TEXT_LENGTH]);
 void print(player* playerArray[], point (*board)[BOARD_HEIGHT][BOARD_WIDTH], int x);
 void boardPrep(point(*array)[BOARD_HEIGHT][BOARD_WIDTH]);
 int checkShipPlacement(player* currentPlayer, int positionY, int positionX, int shipDirection, int shipClass);
+int checkFleetPlace(player* playerArray[]);
+int checkVictory(player* playerArray[]);
 
 int main() {
 	point board[BOARD_HEIGHT][BOARD_WIDTH];
@@ -71,16 +78,37 @@ int main() {
 	player playerB = initiatePlayer(B);
 	player* players[] = { &playerA, &playerB };
 	char command[50];
-	while (cin >> command) {
+	int nextPlayer = 0;
+	int victory = 0;
+	while (cin>>command) {
 		if (strcmp(command, "[state]")==0) {
 			statePhase(players,&board);
 		}
 		if (strcmp(command,"[playerA]")==0) {
-			playerPhase(players[A],&board);
+			if (nextPlayer == 0) {
+				playerPhase(players[A], &board, players);
+				nextPlayer = 1;
+			}
+			else {
+				char tag[TAG_LENGTH] = "[playerA]";
+				char text[TEXT_LENGTH] = "THE OTHER PLAYER EXPECTED";
+				cout << "INVALID OPERATION \"" << tag << " \": " << text;
+				exit(0);
+			}
 		}
 		if (strcmp(command,"[playerB]")==0) {
-			playerPhase(players[B],&board);
+			if (nextPlayer == 1) {
+				playerPhase(players[B], &board, players);
+				nextPlayer = 0;
+			}
+			else {
+				char tag[TAG_LENGTH] = "[playerB]";
+				char text[TEXT_LENGTH] = "THE OTHER PLAYER EXPECTED";
+				cout << "INVALID OPERATION \"" << tag << " \": " << text;
+				exit(0);
+			}
 		}
+		victory = checkVictory(players);
 	}
 	return 0;
 }
@@ -91,6 +119,7 @@ void boardPrep(point (*array)[BOARD_HEIGHT][BOARD_WIDTH]) {
 			(*array)[i][j].x = j;
 			(*array)[i][j].y = i;
 			(*array)[i][j].part = ' ';
+			(*array)[i][j].whichShip = NULL;
 		}
 	}
 }
@@ -127,8 +156,8 @@ void statePhase(player* playerArray[], point (*board)[BOARD_HEIGHT][BOARD_WIDTH]
 		}
 	}
 }
-void playerPhase(player* selectedPlayer, point (*board)[BOARD_HEIGHT][BOARD_WIDTH]) {
-	if (selectedPlayer->fleetPlaced == 0) {
+void playerPhase(player* selectedPlayer, point (*board)[BOARD_HEIGHT][BOARD_WIDTH], player* playerArray[]) {
+	if (selectedPlayer->fleetSet == 0) {
 		setFleet(selectedPlayer, 1, 2, 3, 4);
 	}
 	char action[TEXT_LENGTH];
@@ -145,10 +174,24 @@ void playerPhase(player* selectedPlayer, point (*board)[BOARD_HEIGHT][BOARD_WIDT
 			cin >> posY >> posX >> direction >> iterator >> shipClass;
 			int INTdirection = dirOption(direction);
 			int INTshipClass = shipClassOption(shipClass);
-			placeShip(posY, posX, INTdirection, iterator, INTshipClass, selectedPlayer, board);
+			placeShip(posY, posX, INTdirection, iterator, INTshipClass, selectedPlayer, board, shipClass, direction);
+		}
+		if (strcmp(action, "SHOOT") == 0) {
+			int x, y;
+			cin >> x >> y;
+			if (checkFleetPlace(playerArray) == 1) {
+				shoot(x, y, board,playerArray);
+			}
+			else {
+				char tag[TAG_LENGTH] = "SHOOT";
+				char text[TEXT_LENGTH] = "NOT ALL SHIPS PLACED";
+				cout << "INVALID OPERATION \"" << tag << " "<<x << " " << y << "\": " << text;
+				exit(0);
+			}
 		}
 	}
 }
+
 int shipClassOption(char buffor[5]) {
 	if (strcmp(buffor, "DES") == 0) return DES;
 	else if (strcmp(buffor, "CRU") == 0) return CRU;
@@ -163,11 +206,34 @@ int dirOption(char buffor) {
 	else if (buffor == 'S') return S;
 	else return 0;
 }
+int checkFleetPlace(player* playerArray[]) {
+	int allShipsPlaced = 1;
+	for (int j = 0; j < PLAYER_AMOUNT; j++) {
+		for (int i = 0; i < playerArray[j]->fleetSize; i++) {
+			if (playerArray[j]->ships_array[i].isPlaced == 0) {
+				allShipsPlaced = 0;
+			}
+		}
+	}
+	return allShipsPlaced;
+}
+int checkVictory(player* playerArray[]) {
+	if (playerArray[0]->remainingShipTiles == 0) {
+		return 1;
+	}
+	else if (playerArray[1]->remainingShipTiles == 0) {
+		return 2;
+	}
+	else {
+		return 0;
+	}
+}
+
 player initiatePlayer(int playerName)  {
 	player playerDefault;
 	playerDefault.playersNumber = playerName;
 	playerDefault.fleetSize = 0;
-	playerDefault.fleetPlaced = 0;
+	playerDefault.fleetSet = 0;
 	playerDefault.remainingShipTiles = 0;
 	if (playerName == A) {
 		playerDefault.minBoardHeight = 0;
@@ -191,19 +257,19 @@ ship createShip(int length, player* playerX, int iterator) {
 	}
 	return newShip;
 }
+
 void setFleet(player* playerX, int a1, int a2, int a3, int a4) {
 	int fleetArray[] = {a1,a2,a3,a4};
 	for (int i = 3, k=0; i >= 0; i--, k++) {
 		for (int j = 0; j < fleetArray[k]; j++) {
 			int currentFleetSize = playerX->fleetSize;
 			playerX->ships_array[currentFleetSize] = createShip(i, playerX, j);
-			playerX->remainingShipTiles += (i + 2);
 			playerX->fleetSize++;
 		}
 	}
-	playerX->fleetPlaced = 1;
+	playerX->fleetSet = 1;
 }
-void placeShip(int positionY, int positionX, int shipDirection, int iterator, int shipClass, player* currentPlayer, point (*board)[BOARD_HEIGHT][BOARD_WIDTH]) {
+void placeShip(int positionY, int positionX, int shipDirection, int iterator, int shipClass, player* currentPlayer, point (*board)[BOARD_HEIGHT][BOARD_WIDTH], char shipCHAR[5], char dirCHAR) {
 	char tag[TAG_LENGTH] = "PLACE_SHIP";
 	int fleetSize = currentPlayer->fleetSize;
 	ship* currentShip = NULL;
@@ -214,47 +280,68 @@ void placeShip(int positionY, int positionX, int shipDirection, int iterator, in
 			}
 			else {
 				char text[TEXT_LENGTH] = "SHIP ALREADY PRESENT";
-				errorHandler(tag, text);
+				//errorHandler(tag, text);
+				cout << "INVALID OPERATION " << "\"" << tag << " " << positionY << " " << positionX << " " << dirCHAR << " " << iterator << " " << shipCHAR << "\": " << text << endl;
+				exit(0);
 			}
 		}
 	}
 	if (currentShip == NULL) {
 		char text[TEXT_LENGTH] = "ALL SHIPS OF THE CLASS ALREADY SET";
-		errorHandler(tag, text);
+		//errorHandler(tag, text);
 		//errorHandler "ALL SHIPS OF THE CLASS ALREADY SET"
+		cout << "INVALID OPERATION " << "\"" << tag << " " << positionY << " " << positionX << " " << dirCHAR << " " << iterator << " " << shipCHAR << "\": " << text << endl;
+		exit(0);
 	}
 	else if(checkShipPlacement(currentPlayer,positionY,positionX,shipDirection,shipClass)==1) {
 		switch (shipDirection) {
 		case N:
 			for (int j = 0; j < (currentShip->length); j++) {
 				point* placeOnBoard = &((*board)[positionY + j][positionX]);
+				placeOnBoard->whichShip = currentShip;
+				placeOnBoard->part = '+';
 				currentShip->placement[j] = placeOnBoard;
 			}
 			currentShip->isPlaced = 1;
+			currentPlayer->remainingShipTiles += currentShip->length;
 			break;
 		case E:
 			for (int j = 0; j < (currentShip->length); j++) {
-				currentShip->placement[j] = &((*board)[positionY][positionX-j]);
+				point* placeOnBoard = &((*board)[positionY][positionX - j]);
+				placeOnBoard->whichShip = currentShip;
+				placeOnBoard->part = '+';
+				currentShip->placement[j] = placeOnBoard;
 			}
 			currentShip->isPlaced = 1;
+			currentPlayer->remainingShipTiles += currentShip->length;
 			break;
 		case S:
 			for (int j = 0; j < (currentShip->length); j++) {
-				currentShip->placement[j] = &((*board)[positionY - j][positionX]);
+				point* placeOnBoard = &((*board)[positionY - j][positionX]);
+				placeOnBoard->whichShip = currentShip;
+				placeOnBoard->part = '+';
+				currentShip->placement[j] = placeOnBoard;
 			}
 			currentShip->isPlaced = 1;
+			currentPlayer->remainingShipTiles += currentShip->length;
 			break;
 		case W:
 			for (int j = 0; j < (currentShip->length); j++) {
-				currentShip->placement[j] = &((*board)[positionY][positionX + j]);
+				point* placeOnBoard = &((*board)[positionY][positionX + j]);
+				placeOnBoard->whichShip = currentShip;
+				placeOnBoard->part = '+';
+				currentShip->placement[j] = placeOnBoard;
 			}
 			currentShip->isPlaced = 1;
+			currentPlayer->remainingShipTiles += currentShip->length;
 			break;
 		}
 	}
 	else {
 		char text[TEXT_LENGTH] = "NOT IN STARTING POSITION";
-		errorHandler(tag, text);
+		//errorHandler(tag, text);
+		cout << "INVALID OPERATION " << "\"" << tag << " " << positionY << " " << positionX << " " << dirCHAR << " " << iterator << " " << shipCHAR << "\": " << text << endl;
+		exit(0);
 	}
 }
 int checkShipPlacement(player* currentPlayer, int positionY, int positionX, int shipDirection, int shipClass) {
@@ -299,20 +386,29 @@ int checkShipPlacement(player* currentPlayer, int positionY, int positionX, int 
 		return 0;
 	}
 }
-void print(player* playerArray[], point (*board)[BOARD_HEIGHT][BOARD_WIDTH], int x) {
-	if (x == 0) {
-		for (int i = 0; i < PLAYER_AMOUNT; i++) {
-			if (playerArray[i]->fleetSize > 0) {
-				for (int j = 0; j < SHIP_AMOUNT; j++) {
-					ship* currentShip = &(playerArray[i]->ships_array[j]);
-					if (currentShip->isPlaced == 1) {
-						for (int k = 0; k < (currentShip->length); k++) {
-							currentShip->placement[k]->part = '+';
-						}
+void shoot(int x, int y, point(*board)[BOARD_HEIGHT][BOARD_WIDTH], player* playerArray[]) {
+	if (y < BOARD_HEIGHT || x < BOARD_WIDTH) {
+		if ((*board[y][x]).part == '+') {
+			board[y][x]->part = 'x';
+			ship* shipShotAt = board[y][x]->whichShip;
+			for (int i = 0; i < PLAYER_AMOUNT; i++) {
+				for (int j = 0; j < playerArray[i]->fleetSize; j++) {
+					if (shipShotAt == &(playerArray[i]->ships_array[j])) {
+						playerArray[i]->remainingShipTiles--;
 					}
 				}
 			}
 		}
+	}
+	else {
+		char tag[TAG_LENGTH] = "SHOOT";
+		char text[TEXT_LENGTH] = "FIELD DOES NOT EXIST";
+		cout << "INVALID OPERATION \"" << tag << " " << x << " " << y << "\": " << text;
+		exit(0);
+	}
+}
+void print(player* playerArray[], point (*board)[BOARD_HEIGHT][BOARD_WIDTH], int x) {
+	if (x == 0) {
 		for (int i = 0; i < BOARD_HEIGHT; i++) {
 			for (int j = 0; j < BOARD_WIDTH; j++) {
 				cout << (*board)[i][j].part;
