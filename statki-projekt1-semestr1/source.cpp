@@ -63,11 +63,13 @@ int shipClassOption(char buffor[5]);
 int dirOption(char buffor);
 void setFleet(player* playerX, int a1, int a2, int a3, int a4);
 void placeShip(int positionY, int positionX, int shipDirection, int iterator, int shipClass, player* currentPlayer, point** board, char shipCHAR[5], char dirCHAR);
-void statePhase(player* playerArray[], point** board, int* nextPlayer);
+void statePlaceShip(int positionY, int positionX, int shipDirection, int iterator, int shipClass, player* currentPlayer, point** board, char shipCHAR[5], char dirCHAR, char* stateCHAR);
+void statePhase(player* playerArray[], point** board, int* nextPlayer, int maxBoardHeight, int maxBoardWidth);
 void playerPhase(player* selectedPlayer, point** board, player* playerArray[]);
 void shoot(int x, int y, point** board, player* playerArray[]);
 void errorHandler(char tag[TAG_LENGTH], char text[TEXT_LENGTH]);
 void print(player* playerArray[], point** board, int x);
+void reef(int y, int x, point** board, int maxX, int maxY);
 point** boardPrep(point** array, int board_height, int board_width);
 int checkShipPlacement(player* currentPlayer, int positionY, int positionX, int shipDirection, int shipClass);
 int checkFleetPlace(player* playerArray[]);
@@ -85,7 +87,7 @@ int main() {
 	int victory = 0;
 	while (cin>>command) {
 		if (strcmp(command, "[state]")==0) {
-			statePhase(players,board, &nextPlayer);
+			statePhase(players,board, &nextPlayer,board_height,board_width);
 		}
 		if (strcmp(command,"[playerA]")==0) {
 			if (nextPlayer == 0) {
@@ -121,8 +123,8 @@ point** boardPrep(point** array, int board_height, int board_width) {
 	for (int i = 0; i < board_height; i++) {
 		array[i] = (point *)malloc(board_width * sizeof(point));
 	}
-	for (int i = 0; i < BOARD_HEIGHT; i++) {
-		for (int j = 0; j < BOARD_WIDTH; j++) {
+	for (int i = 0; i < board_height; i++) {
+		for (int j = 0; j < board_width; j++) {
 			array[i][j].x = j;
 			array[i][j].y = i;
 			array[i][j].part = ' ';
@@ -135,13 +137,18 @@ void errorHandler(char tag[TAG_LENGTH], char text[TEXT_LENGTH]) {
 	cout << "INVALID OPERATION " << tag << " SPECIFIED: " << text;
 	exit(0);
 }
-void statePhase(player* playerArray[], point** board, int* nextPlayer) {
+void statePhase(player* playerArray[], point** board, int* nextPlayer, int maxBoardHeight, int maxBoardWidth) {
 	char command[TEXT_LENGTH];
 	int end = 0;
 	while (!end) {
 		cin >> command;
 		if (strcmp(command,"[state]")==0) {
 			end = 1;
+		}
+		if (strcmp(command, "BOARD_SIZE") == 0) {
+			int boardHeight, boardWidth;
+			cin >> boardHeight >> boardWidth;
+			board = boardPrep(board, boardHeight, boardWidth);
 		}
 		if (strcmp(command,"SET_FLEET")==0) {
 			char buffor;
@@ -188,6 +195,26 @@ void statePhase(player* playerArray[], point** board, int* nextPlayer) {
 				playerArray[B]->maxBoardHeight = maxY;
 				playerArray[B]->maxBoardWidth = maxX;
 			}
+		}
+		if (strcmp(command, "SHIP") == 0) {
+			char playerCHAR, dirCHAR, classCHAR[5];
+			int py, px, iterator;
+			cin >> playerCHAR >> py >> px >> dirCHAR >> iterator >> classCHAR;
+			int dirINT = dirOption(dirCHAR);
+			int classINT = shipClassOption(classCHAR);
+			char* stateCHAR = (char*)malloc(classINT * sizeof(char));
+			cin >> stateCHAR;
+			if (playerCHAR == 'A') {
+				statePlaceShip(py, px, dirINT, iterator, classINT, playerArray[A], board, classCHAR, dirCHAR, stateCHAR);
+			}
+			else if(playerCHAR == 'B') {
+				statePlaceShip(py, px, dirINT, iterator, classINT, playerArray[B], board, classCHAR, dirCHAR, stateCHAR);
+			}
+		}
+		if (strcmp(command, "REEF") == 0) {
+			int py, px;
+			cin >> py >> px;
+			reef(py, px, board,maxBoardWidth, maxBoardHeight);
 		}
 	}
 }
@@ -280,6 +307,49 @@ int checkVictory(player* playerArray[]) {
 	}
 	
 }
+int checkShipPlacement(player* currentPlayer, int positionY, int positionX, int shipDirection, int shipClass) {
+	if (positionY <= currentPlayer->maxBoardHeight && positionY >= currentPlayer->minBoardHeight && positionX <= currentPlayer->maxBoardWidth && positionX >= currentPlayer->minBoardWidth) {
+		if (shipDirection == N) {
+			if ((positionY + shipClass - 1) > currentPlayer->maxBoardHeight) {
+				return 0;
+			}
+			else {
+				return 1;
+			}
+		}
+		if (shipDirection == E) {
+			if ((positionX - shipClass) >= currentPlayer->maxBoardWidth) {
+				return 0;
+			}
+			else {
+				return 1;
+			}
+		}
+		if (shipDirection == W) {
+			if ((positionX + shipClass) < currentPlayer->minBoardWidth) {
+				return 0;
+			}
+			else {
+				return 1;
+			}
+		}
+		if (shipDirection == S) {
+			if ((positionY - shipClass + 1) < currentPlayer->minBoardHeight) {
+				return 0;
+			}
+			else {
+				return 1;
+			}
+		}
+		else {
+			return 0;
+		}
+	}
+	else {
+		return 0;
+	}
+}
+
 
 player initiatePlayer(int playerName)  {
 	player playerDefault;
@@ -400,46 +470,88 @@ void placeShip(int positionY, int positionX, int shipDirection, int iterator, in
 		exit(0);
 	}
 }
-int checkShipPlacement(player* currentPlayer, int positionY, int positionX, int shipDirection, int shipClass) {
-	if (positionY <= currentPlayer->maxBoardHeight && positionY >= currentPlayer->minBoardHeight && positionX<=currentPlayer->maxBoardWidth && positionX>=currentPlayer->minBoardWidth) {
-		if (shipDirection == N) {
-			if ((positionY + shipClass-1) > currentPlayer->maxBoardHeight) {
-				return 0;
+void statePlaceShip(int positionY, int positionX, int shipDirection, int iterator, int shipClass, player* currentPlayer, point** board, char shipCHAR[5], char dirCHAR, char* stateCHAR) {
+	if (currentPlayer->fleetSet == 0) {
+		setFleet(currentPlayer, 1, 2, 3, 4);
+	}
+	char tag[TAG_LENGTH] = "SHIP";
+	int fleetSize = currentPlayer->fleetSize;
+	ship* currentShip = NULL;
+	for (int i = 0; i < fleetSize; i++) {
+		if (currentPlayer->ships_array[i].length == shipClass && currentPlayer->ships_array[i].classIterator == iterator) {
+			if (currentPlayer->ships_array[i].isPlaced == 0) {
+				currentShip = &(currentPlayer->ships_array[i]);
 			}
 			else {
-				return 1;
+				char text[TEXT_LENGTH] = "SHIP ALREADY PRESENT";
+				//errorHandler(tag, text);
+				cout << "INVALID OPERATION " << "\"" << tag << " " << positionY << " " << positionX << " " << dirCHAR << " " << iterator << " " << shipCHAR << "\": " << text << endl;
+				exit(0);
 			}
 		}
-		if (shipDirection == E) {
-			if ((positionX - shipClass) >= currentPlayer->maxBoardWidth) {
-				return 0;
+	}
+	if (currentShip == NULL) {
+		char text[TEXT_LENGTH] = "ALL SHIPS OF THE CLASS ALREADY SET";
+		//errorHandler(tag, text);
+		//errorHandler "ALL SHIPS OF THE CLASS ALREADY SET"
+		cout << "INVALID OPERATION " << "\"" << tag << " " << positionY << " " << positionX << " " << dirCHAR << " " << iterator << " " << shipCHAR << "\": " << text << endl;
+		exit(0);
+	}
+	else if (checkShipPlacement(currentPlayer, positionY, positionX, shipDirection, shipClass) == 1) {
+		switch (shipDirection) {
+		case N:
+			for (int j = 0; j < (currentShip->length); j++) {
+				point* placeOnBoard = &(board[positionY + j][positionX]);
+				placeOnBoard->whichShip = currentShip;
+				placeOnBoard->part = '+';
+				currentShip->placement[j] = placeOnBoard;
 			}
-			else {
-				return 1;
+			currentShip->isPlaced = 1;
+			currentPlayer->remainingShipTiles += currentShip->length;
+			break;
+		case E:
+			for (int j = 0; j < (currentShip->length); j++) {
+				point* placeOnBoard = &(board[positionY][positionX - j]);
+				placeOnBoard->whichShip = currentShip;
+				placeOnBoard->part = '+';
+				currentShip->placement[j] = placeOnBoard;
 			}
-		}
-		if (shipDirection == W) {
-			if ((positionX + shipClass) < currentPlayer->minBoardWidth) {
-				return 0;
+			currentShip->isPlaced = 1;
+			currentPlayer->remainingShipTiles += currentShip->length;
+			break;
+		case S:
+			for (int j = 0; j < (currentShip->length); j++) {
+				point* placeOnBoard = &(board[positionY - j][positionX]);
+				placeOnBoard->whichShip = currentShip;
+				placeOnBoard->part = '+';
+				currentShip->placement[j] = placeOnBoard;
 			}
-			else {
-				return 1;
+			currentShip->isPlaced = 1;
+			currentPlayer->remainingShipTiles += currentShip->length;
+			break;
+		case W:
+			for (int j = 0; j < (currentShip->length); j++) {
+				point* placeOnBoard = &(board[positionY][positionX + j]);
+				placeOnBoard->whichShip = currentShip;
+				placeOnBoard->part = '+';
+				currentShip->placement[j] = placeOnBoard;
 			}
-		}
-		if (shipDirection == S) {
-			if ((positionY - shipClass+1) < currentPlayer->minBoardHeight) {
-				return 0;
-			}
-			else {
-				return 1;
-			}
-		}
-		else {
-			return 0;
+			currentShip->isPlaced = 1;
+			currentPlayer->remainingShipTiles += currentShip->length;
+			break;
 		}
 	}
 	else {
-		return 0;
+		char text[TEXT_LENGTH] = "NOT IN STARTING POSITION";
+		//errorHandler(tag, text);
+		cout << "INVALID OPERATION " << "\"" << tag << " " << positionY << " " << positionX << " " << dirCHAR << " " << iterator << " " << shipCHAR << "\": " << text << endl;
+		exit(0);
+	}
+	for (int i = 0; i < currentShip->length; i++) {
+		if (stateCHAR[i] == '0') {
+			currentShip->placement[i]->part = 'x';
+			currentPlayer->remainingShipTiles--;
+		}
 	}
 }
 void shoot(int x, int y, point** board, player* playerArray[]) {
@@ -472,5 +584,14 @@ void print(player* playerArray[], point** board, int x) {
 			cout << endl;
 		}
 		cout << "PARTS REMAINING:: A : " << playerArray[A]->remainingShipTiles << " B : " << playerArray[B]->remainingShipTiles << endl;
+	}
+}
+void reef(int y, int x, point** board, int maxX, int maxY) {
+	if (y < maxY && y >= 0 && x < maxX && x >= 0) {
+		board[y][x].part = '#';
+	}
+	else {
+		cout << "INVALID OPERATION REEF " << y << " " << x << " SPECIFIED: REEF IS NOT PLACED ON BOARD";
+		exit(0);
 	}
 }
