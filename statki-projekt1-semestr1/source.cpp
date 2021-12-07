@@ -48,7 +48,6 @@ struct player {
 	int fleetSize;
 	int remainingShipTiles;
 	int fleetSet;
-	int fleetPlaced;
 	int minBoardHeight;
 	int minBoardWidth;
 	int maxBoardHeight;
@@ -67,7 +66,7 @@ int dirOption(char buffor);
 void setFleet(player* playerX, int a1, int a2, int a3, int a4);
 void placeShip(int positionY, int positionX, int shipDirection, int iterator, int shipClass, player* currentPlayer, point** board, char shipCHAR[5], char dirCHAR);
 void statePlaceShip(int positionY, int positionX, int shipDirection, int iterator, int shipClass, player* currentPlayer, point** board,char playerCHAR, char shipCHAR[5], char dirCHAR, char* stateCHAR);
-void statePhase(game* Game, player* playerArray[], point** board, int* nextPlayer, int maxBoardHeight, int maxBoardWidth);
+void statePhase(game* Game, player* playerArray[], point** board, int* nextPlayer);
 void playerPhase(player* selectedPlayer, point** board, player* playerArray[], game* Game);
 void shoot(int x, int y, point** board, player* playerArray[], game* Game);
 void errorHandler(char tag[TAG_LENGTH], char text[TEXT_LENGTH]);
@@ -82,18 +81,17 @@ int checkVictory(player* playerArray[]);
 int main() {
 	point** board = NULL;
 	game Game;
-	int board_height = 21, board_width = 10;
-	Game.boardHeight = board_height;
-	Game.boardWidth = board_width;
-	board = boardPrep(board,board_height, board_width);
+	Game.boardHeight = 21;
+	Game.boardWidth = 10;
+	board = boardPrep(board,21, 10);
 	player playerA = initiatePlayer(A);
 	player playerB = initiatePlayer(B);
 	player* players[] = { &playerA, &playerB };
-	char command[50];
+	char command[TEXT_LENGTH];
 	int nextPlayer = 0;
 	while (cin>>command) {
 		if (strcmp(command, "[state]")==0) {
-			statePhase(&Game,players,board, &nextPlayer,board_height,board_width);
+			statePhase(&Game,players,board, &nextPlayer);
 		}
 		if (strcmp(command,"[playerA]")==0) {
 			if (nextPlayer == 0) {
@@ -142,7 +140,7 @@ void errorHandler(char tag[TAG_LENGTH], char text[TEXT_LENGTH]) {
 	cout << "INVALID OPERATION " << tag << " SPECIFIED: " << text;
 	exit(0);
 }
-void statePhase(game* Game, player* playerArray[], point** board, int* nextPlayer, int maxBoardHeight, int maxBoardWidth) {
+void statePhase(game* Game, player* playerArray[], point** board, int* nextPlayer) {
 	char command[TEXT_LENGTH];
 	int end = 0;
 	while (!end) {
@@ -153,6 +151,10 @@ void statePhase(game* Game, player* playerArray[], point** board, int* nextPlaye
 		if (strcmp(command, "BOARD_SIZE") == 0) {
 			int boardHeight, boardWidth;
 			cin >> boardHeight >> boardWidth;
+			for (int i = 0; i < Game->boardWidth; i++) {
+				free(board[i]);
+			}
+			free(board);
 			board = boardPrep(board, boardHeight, boardWidth);
 			Game->boardHeight = boardHeight;
 			Game->boardWidth = boardWidth;
@@ -209,7 +211,7 @@ void statePhase(game* Game, player* playerArray[], point** board, int* nextPlaye
 			cin >> playerCHAR >> py >> px >> dirCHAR >> iterator >> classCHAR;
 			int dirINT = dirOption(dirCHAR);
 			int classINT = shipClassOption(classCHAR);
-			char* stateCHAR = (char*)malloc(classINT * sizeof(char));
+			char* stateCHAR = (char*)malloc((classINT+1) * sizeof(char));
 			cin >> stateCHAR;
 			if (playerCHAR == 'A') {
 				statePlaceShip(py, px, dirINT, iterator, classINT, playerArray[A], board,playerCHAR, classCHAR, dirCHAR, stateCHAR);
@@ -217,12 +219,12 @@ void statePhase(game* Game, player* playerArray[], point** board, int* nextPlaye
 			else if(playerCHAR == 'B') {
 				statePlaceShip(py, px, dirINT, iterator, classINT, playerArray[B], board,playerCHAR, classCHAR, dirCHAR, stateCHAR);
 			}
-			stateCHAR = NULL;
+			free(stateCHAR);
 		}
 		if (strcmp(command, "REEF") == 0) {
 			int py, px;
 			cin >> py >> px;
-			reef(py, px, board,maxBoardWidth, maxBoardHeight);
+			reef(py, px, board,Game->boardWidth, Game->boardHeight);
 		}
 	}
 }
@@ -365,13 +367,13 @@ int checkShipProximity(player* currentPlayer, point** board, int positionY, int 
 	case N:
 		for (int i = 0; i < shipClass; i++) {
 			if (i == 0) {
-				if ((positionY - 1) >= currentPlayer->minBoardHeight) {
+				if ((positionY + i - 1) >= currentPlayer->minBoardHeight) {
 					if(board[positionY + i - 1][positionX].part == '+')
 					result = 0;
 				}
 			}
 			if (i == (shipClass - 1)) {
-				if ((positionY + 1) <= currentPlayer->maxBoardHeight) {
+				if ((positionY + i + 1) <= (currentPlayer->maxBoardHeight)) {
 					if(board[positionY + i + 1][positionX].part == '+')
 					result = 0;
 				}
@@ -385,14 +387,14 @@ int checkShipProximity(player* currentPlayer, point** board, int positionY, int 
 	case E:
 		for (int i = 0; i < shipClass; i++) {
 			if (i == 0) {
-				if ((positionX + 1) <= currentPlayer->maxBoardWidth) {
-					if(board[positionY][positionX + 1].part == '+')
+				if ((positionX - i + 1) <= currentPlayer->maxBoardWidth) {
+					if(board[positionY][positionX - i + 1].part == '+')
 					result = 0;
 				}
 			}
 			if (i == (shipClass - 1)) {
-				if ((positionX - 1) >= currentPlayer->minBoardWidth) {
-					if(board[positionY][positionX - 1].part == '+')
+				if ((positionX - i - 1) >= currentPlayer->minBoardWidth) {
+					if(board[positionY][positionX - i - 1].part == '+')
 					result = 0;
 				}
 			}
@@ -405,19 +407,19 @@ int checkShipProximity(player* currentPlayer, point** board, int positionY, int 
 	case S:
 		for (int i = 0; i < shipClass; i++) {
 			if (i == 0) {
-				if ((positionY + 1) <= currentPlayer->maxBoardHeight) {
-					if(board[positionY + 1][positionX].part == '+')
+				if ((positionY - i + 1) <= currentPlayer->maxBoardHeight) {
+					if(board[positionY - i + 1][positionX].part == '+')
 					result = 0;
 				}
 			}
 			if (i == (shipClass - 1)) {
 				if ((positionY - 1) >= currentPlayer->minBoardHeight) {
-					if(board[positionY - 1][positionX].part == '+')
+					if(board[positionY - i - 1][positionX].part == '+')
 					result = 0;
 				}
 			}
 			if ( (positionX - 1) >= currentPlayer->minBoardWidth && (positionX + 1) <= currentPlayer->maxBoardWidth) {
-				if(board[positionY + i][positionX - 1].part == '+' || board[positionY + i][positionX + 1].part == '+')
+				if(board[positionY - i][positionX - 1].part == '+' || board[positionY - i][positionX + 1].part == '+')
 				result = 0;
 			}
 		}
@@ -425,14 +427,14 @@ int checkShipProximity(player* currentPlayer, point** board, int positionY, int 
 	case W:
 		for (int i = 0; i < shipClass; i++) {
 			if (i == 0) {
-				if ((positionX - 1) >= currentPlayer->minBoardWidth) {
-					if(board[positionY][positionX - 1].part == '+')
+				if ((positionX + i - 1) >= currentPlayer->minBoardWidth) {
+					if(board[positionY][positionX + i - 1].part == '+')
 					result = 0;
 				}
 			}
 			if (i == (shipClass - 1)) {
-				if ((positionX + 1) <= currentPlayer->maxBoardWidth) {
-					if(board[positionY][positionX + 1].part == '+')
+				if ((positionX + i + 1) <= currentPlayer->maxBoardWidth) {
+					if(board[positionY][positionX + i + 1].part == '+')
 					result = 0;
 				}
 			}
@@ -600,7 +602,7 @@ void placeShip(int positionY, int positionX, int shipDirection, int iterator, in
 				}
 			}
 			else {
-				char text[TEXT_LENGTH] = "PLACING SHIP ON THE REEF";
+				char text[TEXT_LENGTH] = "PLACING SHIP ON REEF";
 				cout << "INVALID OPERATION " << "\"" << tag << " " << positionY << " " << positionX << " " << dirCHAR << " " << iterator << " " << shipCHAR << "\": " << text << endl;
 				exit(0);
 			}
