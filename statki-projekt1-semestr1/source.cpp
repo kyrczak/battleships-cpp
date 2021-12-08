@@ -42,6 +42,7 @@ struct ship {
 	int length;
 	int direction;
 	int numberOfMoves;
+	int numberOfShots;
 	int classIterator;
 	int radarPosition;
 	int isRadarWorking;
@@ -660,6 +661,7 @@ ship createShip(int length, int iterator) {
 	newShip.classIterator = iterator;
 	newShip.direction = 0;
 	newShip.numberOfMoves = 0;
+	newShip.numberOfShots = 0;
 	newShip.radarPosition = 0;
 	newShip.cannonPosition = 1;
 	newShip.isCannonWorking = 1;
@@ -1297,9 +1299,11 @@ void refreshMoves(player* currentPlayer) {
 	for (int i = 0; i < currentPlayer->fleetSize; i++) {
 		if (currentPlayer->ships_array[i].length == CAR) {
 			currentPlayer->ships_array[i].numberOfMoves = 2;
+			currentPlayer->ships_array[i].numberOfShots = CAR;
 		}
 		else {
 			currentPlayer->ships_array[i].numberOfMoves = 3;
+			currentPlayer->ships_array[i].numberOfShots = currentPlayer->ships_array[i].length;
 		}
 	}
 	
@@ -1344,7 +1348,7 @@ void shootExtended(player* currentPlayer, player* playerArray[], point** board, 
 		if (currentPlayer->ships_array[i].classIterator == iterator && currentPlayer->ships_array[i].length == shipClass)
 			currentShip = &(currentPlayer->ships_array[i]);
 	}
-	if (currentShip->numberOfMoves > 0) {
+	if (currentShip->numberOfShots> 0) {
 		if (currentShip->isCannonWorking == 1) {
 			if (posY < Game->boardHeight && posX < Game->boardWidth) {
 				if (shootDistance(posX, posY, currentShip) <= currentShip->length) {
@@ -1373,6 +1377,9 @@ void shootExtended(player* currentPlayer, player* playerArray[], point** board, 
 								shipShotAt->isCannonWorking = 0;
 								shipShotAt->isEngineWorking = 0;
 							}
+							else {
+								shipShotAt->isCannonWorking = 0;
+							}
 						}
 						board[posY][posX].part = 'x';
 						playerShotAt->remainingShipTiles--;
@@ -1391,7 +1398,7 @@ void shootExtended(player* currentPlayer, player* playerArray[], point** board, 
 			cout << "INVALID OPERATION " << "\"" << tag << " " << iterator << " " << shipCHAR << " " << posY << " " << posX << "\": " << text << endl;
 			exit(0);
 		}
-		currentShip->numberOfMoves--;
+		currentShip->numberOfShots--;
 	}
 	else {
 		char text[TEXT_LENGTH] = "TOO MANY SHOOTS";
